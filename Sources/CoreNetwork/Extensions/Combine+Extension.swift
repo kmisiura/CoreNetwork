@@ -7,12 +7,12 @@
 
 import Combine
 
-enum AsyncError: Error {
+public enum AsyncError: Error {
     case finishedWithoutValue
 }
 
-extension AnyPublisher {
-    func async() async throws -> Output {
+public extension AnyPublisher {
+    public func async() async throws -> Output {
         try await withCheckedThrowingContinuation { continuation in
             var cancellable: AnyCancellable?
             var finishedWithoutValue = true

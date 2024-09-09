@@ -3,7 +3,7 @@
     "pins": [
       {
         "package": "Alamofire",
-        "repositoryURL": "git@github.com:Alamofire/Alamofire.git",
+        "repositoryURL": "https://github.com/Alamofire/Alamofire.git",
         "state": {
           "branch": null,
           "revision": "f455c2975872ccd2d9c81594c658af65716e9b9a",
@@ -12,7 +12,7 @@
       },
       {
         "package": "AnyCodable",
-        "repositoryURL": "git@github.com:Flight-School/AnyCodable.git",
+        "repositoryURL": "https://github.com/Flight-School/AnyCodable.git",
         "state": {
           "branch": null,
           "revision": "862808b2070cd908cb04f9aafe7de83d35f81b05",
@@ -30,7 +30,7 @@
       },
       {
         "package": "Mocker",
-        "repositoryURL": "git@github.com:WeTransfer/Mocker.git",
+        "repositoryURL": "https://github.com/WeTransfer/Mocker.git",
         "state": {
           "branch": null,
           "revision": "5d86f27a8f80d4ba388bc1a379a3c2289a1f3d18",
@@ -39,7 +39,7 @@
       },
       {
         "package": "OSLogger",
-        "repositoryURL": "git@github.com:kmisiura/OSLogger.git",
+        "repositoryURL": "https://github.com/kmisiura/OSLogger.git",
         "state": {
           "branch": null,
           "revision": "36285b4c5b1c3e824e141382649974ab24072ef5",
@@ -48,7 +48,7 @@
       },
       {
         "package": "SwiftCrypto",
-        "repositoryURL": "git@github.com:jernejstrasner/SwiftCrypto.git",
+        "repositoryURL": "https://github.com/jernejstrasner/SwiftCrypto.git",
         "state": {
           "branch": null,
           "revision": "2ebc58fa75de1c7d4ef884c609a81398c01655d7",

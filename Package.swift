@@ -19,11 +19,11 @@ let package = Package(
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
-        .package(url: "git@github.com:Alamofire/Alamofire.git", from: "5.0.0"),
-        .package(url: "git@github.com:kmisiura/OSLogger.git", from: "1.0.0"),
-        .package(url: "git@github.com:jernejstrasner/SwiftCrypto.git", from: "1.0.1"),
-        .package(url: "git@github.com:WeTransfer/Mocker.git", from: "2.3.0"),
-        .package(url: "git@github.com:Flight-School/AnyCodable.git", from: "0.6.0")
+        .package(url: "https://github.com/Alamofire/Alamofire.git", .upToNextMajor(from: "5.9.1")),
+        .package(url: "https://github.com/kmisiura/OSLogger.git", from: "1.0.0"),
+        .package(url: "https://github.com/jernejstrasner/SwiftCrypto.git", from: "1.0.1"),
+        .package(url: "https://github.com/WeTransfer/Mocker.git", from: "2.3.0"),
+        .package(url: "https://github.com/Flight-School/AnyCodable.git", from: "0.6.0")
     ],
     targets: [
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
