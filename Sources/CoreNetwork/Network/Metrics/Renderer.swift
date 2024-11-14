@@ -25,17 +25,17 @@ import Foundation
 /// response          |                                                                               #|   0.2ms
 ///                                                                                              total   465.5ms
 @available(iOS 10.0, macOS 10.12, tvOS 10.0, *)
-public struct ConsoleRenderer {
-    public var printer: (String) -> Void = { NSLog($0) }
+struct ConsoleRenderer {
+    var printer: (String) -> Void = { NSLog($0) }
     let columns = (left: 18, middle: 82, right: 8)
     
-    public init() {}
+    init() {}
     
-    public func print(with stats: SessionMetrics, taskID: String) {
+    func print(with stats: SessionMetrics, taskID: String) {
         printer(self.render(with: stats, taskID: taskID))
     }
     
-    public func render(with stats: SessionMetrics, taskID: String) -> String {
+    func render(with stats: SessionMetrics, taskID: String) -> String {
         var buffer: [String] = []
         buffer.append("Task ID: \(taskID) lifetime: \(stats.taskInterval.duration.ms) redirects: \(stats.redirectCount)")
         for metric in stats.metrics {

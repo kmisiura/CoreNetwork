@@ -8,18 +8,23 @@ public class Network<T: Decodable>: GenericNetwork {
     public init(endPoint: String,
                 decoder: JSONDecoder = JSONDecoder(),
                 encoding: ParameterEncoding = JSONEncoding.default,
-                session: Session = newDefaultSession(),
-                requestModifier: Session.RequestModifier? = nil,
+                session: Session? = nil,
+                enableCaching: Bool? = nil,
                 requestInterceptor: RequestInterceptor? = nil,
-                headers: [String: String]? = nil) {
+                headers: [String: String]? = nil,
+                errorMapper: NetworkErrorMapper? = nil) {
+        var name = "\(endPoint)_\(T.self)"
+        name.unicodeScalars.removeAll(where: { !CharacterSet.urlUserAllowed.contains($0) })
         
         super.init(endPoint: endPoint,
                    decoder: decoder,
                    encoding: encoding,
                    session: session,
-                   requestModifier: requestModifier,
+                   enableCaching: enableCaching,
                    requestInterceptor: requestInterceptor,
-                   headers: headers)
+                   headers: headers,
+                   errorMapper: errorMapper,
+                   name: name)
     }
     
     // MARK: - Public functions
@@ -43,8 +48,8 @@ public class Network<T: Decodable>: GenericNetwork {
     }
     
     public func postItem(_ path: String,
-                         parameters: [String: Any],
-                         item: [String: Any],
+                         parameters: [String: Any]? = nil,
+                         item: [String: Any]? = nil,
                          validStatusCodes: Range<Int> = 200..<300) -> AnyPublisher<T?, CoreNetworkError> {
         return publisherForOptionalPath(path,
                                         method: .post,
@@ -65,8 +70,8 @@ public class Network<T: Decodable>: GenericNetwork {
     }
     
     public func deleteItem(_ path: String,
-                           parameters: [String: Any],
-                           item: [String: Any],
+                           parameters: [String: Any]? = nil,
+                           item: [String: Any]? = nil,
                            validStatusCodes: Range<Int> = 200..<300) -> AnyPublisher<T?, CoreNetworkError> {
         return publisherForOptionalPath(path,
                                         method: .delete,

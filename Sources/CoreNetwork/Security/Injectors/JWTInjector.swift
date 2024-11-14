@@ -9,14 +9,18 @@ enum JWTInjectorError: Error {
 public final class JWTInjector: RequestInterceptor {
     
     private let headerFieldKey: String
+    private let tokenPrefix: String?
     private let urlFilter: ((URL?) -> Bool)?
+    private let reqeustModifier: Session.RequestModifier?
     
     public var authorizationToken: String?
     public var authorization401Handler: (() -> String?)?
     
-    public init(headerFieldKey: String, urlFilter: ((URL?) -> Bool)? = nil) {
+    public init(headerFieldKey: String, tokenPrefix: String? = nil, urlFilter: ((URL?) -> Bool)? = nil, reqeustModifier: Session.RequestModifier? = nil) {
         self.headerFieldKey = headerFieldKey
+        self.tokenPrefix = tokenPrefix
         self.urlFilter = urlFilter
+        self.reqeustModifier = reqeustModifier
     }
     
     // MARK: - Request Adapter
@@ -28,6 +32,13 @@ public final class JWTInjector: RequestInterceptor {
             return
         }
         
+        var urlRequest = urlRequest
+        
+        if let reqeustModifier = reqeustModifier {
+            Log.verbose("Running request modifier")
+            try? reqeustModifier(&urlRequest)
+        }
+        
         guard urlFilter?(urlRequest.url) ?? true else {
             Log.verbose("Request \"\(String(describing: urlRequest.url))\" did not pass url filter.")
             completion(.success(urlRequest))
@@ -35,8 +46,7 @@ public final class JWTInjector: RequestInterceptor {
         }
         
         Log.verbose("Injecting token into \(urlRequest)")
-        var urlRequest = urlRequest
-        urlRequest.setValue(token, forHTTPHeaderField: headerFieldKey)
+        urlRequest.setValue("\(tokenPrefix ?? "")\(token)", forHTTPHeaderField: headerFieldKey)
         completion(.success(urlRequest))
     }
     

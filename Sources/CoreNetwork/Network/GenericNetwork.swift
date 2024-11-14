@@ -3,6 +3,10 @@ import Combine
 import Foundation
 import OSLogger
 
+public protocol MetricsCollector {
+    func requestDidStart(_ requestURL: String, method: HTTPMethod, parameters: Parameters?)
+    func requestDidFinish(_ requestURL: String, method: HTTPMethod, parameters: Parameters?, statusCode: Int?, error: Error?)
+}
 
 public protocol NetworkErrorMapper {
     /// Parses backend response in case of error status codes and converts it to an `Error'`
@@ -22,11 +26,15 @@ public class GenericNetwork {
     private let encoding: ParameterEncoding
     private let decoder: JSONDecoder
     private let decoderQueue = DispatchQueue.global(qos: .userInitiated)
-    private let requestModifier: Session.RequestModifier?
     private let requestInterceptor: RequestInterceptor?
     private let errorMapper: NetworkErrorMapper?
+    private let cacheURL: URL?
     
-    internal let session: Session
+    public let name: String
+    
+    public let session: Session
+    
+    public var metricsCollector: MetricsCollector?
     
     /**
      Additional header fields to use in all reqeust.
@@ -45,31 +53,92 @@ public class GenericNetwork {
      - Important: These query items will override `Settings.globalQueryItems` and will be overriden by reuqests parameters.
      */
     public var queryItems: [String: Any] = [:]
-
-    public static func newDefaultSession() -> Session {
-        let configuration = URLSessionConfiguration.default
-        configuration.timeoutIntervalForRequest = 9
-        configuration.timeoutIntervalForResource = 9
-        let session = Session(configuration: configuration)
-        return session
-    }
     
     public init(endPoint: String,
                 decoder: JSONDecoder = JSONDecoder(),
                 encoding: ParameterEncoding = JSONEncoding.default,
-                session: Session = newDefaultSession(),
-                requestModifier: Session.RequestModifier? = nil,
+                session: Session? = nil,
+                enableCaching: Bool? = nil,
                 requestInterceptor: RequestInterceptor? = nil,
                 headers: [String: String]? = nil,
-                errorMapper: NetworkErrorMapper? = nil) {
+                errorMapper: NetworkErrorMapper? = nil,
+                name: String? = nil) {
         self.endPoint = endPoint
         self.decoder = decoder
         self.encoding = encoding
-        self.session = session
-        self.requestModifier = requestModifier
         self.requestInterceptor = requestInterceptor
         self.errorMapper = errorMapper
         self.headerFields = headers ?? [:]
+        let networkName = name ?? "Generic \(endPoint)"
+        self.name = networkName
+        
+        if let session = session {
+            self.session = session
+            self.cacheURL = nil
+            return
+        }
+        
+        let configuration = URLSessionConfiguration.default
+        configuration.timeoutIntervalForRequest = 30
+        configuration.timeoutIntervalForResource = 120
+        
+        if enableCaching == true {
+            if let cacheURL = GenericNetwork.cacheURL(name: networkName) {
+                configuration.urlCache = GenericNetwork.newCache(cacheURL: cacheURL)
+                configuration.requestCachePolicy = .returnCacheDataElseLoad
+                self.cacheURL = cacheURL
+            } else {
+                Log.error("Failed to create cache URL")
+                configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+                self.cacheURL = nil
+            }
+        } else {
+            configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+            self.cacheURL = nil
+        }
+        
+        self.session = Session(configuration: configuration)
+    }
+    
+    private static func cacheURL(name: String) -> URL? {
+        let cacheURLKey = "\(name).cache"
+        if let url = UserDefaults.standard.url(forKey: cacheURLKey) {
+            Log.debug("\(name), there's old cache URL saved.")
+            return url
+        } else if let url = GenericNetwork.createCacheDirectory(name: name) {
+            Log.debug("\(name), no old cache, creating new one.")
+            UserDefaults.standard.set(url, forKey: cacheURLKey)
+            return url
+        } else {
+            Log.error("Failed to create cache URL")
+            return nil
+        }
+    }
+    
+    private static func createCacheDirectory(name: String) -> URL? {
+        guard var url = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else {
+            return nil
+        }
+        
+        url.appendPathComponent(name, isDirectory: true)
+        
+        do {
+            try FileManager.default.createDirectory(at: url,
+                                                    withIntermediateDirectories: true,
+                                                    attributes: nil)
+            url.appendPathComponent("urlcache", isDirectory: false)
+            return url
+        } catch  {
+            Log.error(error)
+            return nil
+        }
+    }
+    
+    private static func newCache(cacheURL: URL) -> URLCache {
+        let cache = URLCache(memoryCapacity: 2 * 1024 * 1024,
+                             diskCapacity: 100 * 1024 * 1024,
+                             directory: cacheURL)
+        return cache
     }
     
     // MARK: - Public functions
@@ -93,15 +162,15 @@ public class GenericNetwork {
         return Just(())
             .setFailureType(to: CoreNetworkError.self)
             .flatMap {
-                self.session.request(url,
-                                     method: method,
-                                     encoding: self.encoding,
-                                     headers: self.makeHeaderFields(),
-                                     interceptor: requestInterceptor ?? self.requestInterceptor,
-                                     requestModifier: self.requestModifier)
+                self.logMetricStart(url.absoluteString, method: method, parameters: parameters)
+                return self.session.request(url,
+                                            method: method,
+                                            encoding: self.encoding,
+                                            headers: self.makeHeaderFields(),
+                                            interceptor: requestInterceptor ?? self.requestInterceptor)
                 .logRequest()
                 .validate(statusCode: validStatusCodes)
-                .publishDecodable(type: R.self)
+                .publishDecodable(type: R.self, decoder: self.decoder)
                 .tryMap { result -> R in try self.validateResult(result) }
                 .mapError { $0 as? CoreNetworkError ?? CoreNetworkError.network(error: $0) }
                 .eraseToAnyPublisher() }
@@ -134,11 +203,10 @@ public class GenericNetwork {
                                      parameters: item,
                                      encoding: self.encoding,
                                      headers: self.makeHeaderFields(),
-                                     interceptor: requestInterceptor ?? self.requestInterceptor,
-                                     requestModifier: self.requestModifier)
+                                     interceptor: requestInterceptor ?? self.requestInterceptor)
                 .logRequest()
                 .validate(statusCode: validStatusCodes)
-                .publishDecodable(type: R.self)
+                .publishDecodable(type: R.self, decoder: self.decoder)
                 .tryMap { result -> R in
                     try self.validateResult(result)
                 }
@@ -168,16 +236,16 @@ public class GenericNetwork {
         return Just(())
             .setFailureType(to: CoreNetworkError.self)
             .flatMap {
-                self.session.request(url,
+                self.logMetricStart(url.absoluteString, method: method, parameters: parameters)
+                return self.session.request(url,
                                      method: method,
                                      parameters: item,
                                      encoding: self.encoding,
                                      headers: self.makeHeaderFields(),
-                                     interceptor: requestInterceptor ?? self.requestInterceptor,
-                                     requestModifier: self.requestModifier)
+                                     interceptor: requestInterceptor ?? self.requestInterceptor)
                 .logRequest()
                 .validate(statusCode: validStatusCodes)
-                .publishDecodable(type: R.self)
+                .publishDecodable(type: R.self, decoder: self.decoder)
                 .tryMap { result -> R? in
                     try self.validateOptionalResult(result)
                 }
@@ -207,15 +275,15 @@ public class GenericNetwork {
         return Just(())
             .setFailureType(to: CoreNetworkError.self)
             .flatMap {
-                self.session.upload(multipartFormData: multipartFormData,
+                self.logMetricStart(url.absoluteString, method: method, parameters: parameters)
+                return self.session.upload(multipartFormData: multipartFormData,
                                     to: url,
                                     method: method,
                                     headers: self.makeHeaderFields(),
-                                    interceptor: requestInterceptor ?? self.requestInterceptor,
-                                    requestModifier: self.requestModifier)
+                                    interceptor: requestInterceptor ?? self.requestInterceptor)
                 .logRequest()
                 .validate(statusCode: validStatusCodes)
-                .publishDecodable(type: R.self)
+                .publishDecodable(type: R.self, decoder: self.decoder)
                 .tryMap { result -> R in
                     try self.validateResult(result)
                 }
@@ -224,17 +292,35 @@ public class GenericNetwork {
             .eraseToAnyPublisher()
     }
     
+    public func removeAllCachedResponses() {
+        Log.verbose()
+        if let urlCache = self.session.session.configuration.urlCache, let cacheURL = self.cacheURL {
+            urlCache.removeAllCachedResponses()
+            self.session.session.configuration.urlCache = nil
+            do {
+                try FileManager.default.removeItem(at: cacheURL)
+            } catch {
+                Log.error("Error while trying to remove cache at url: '\(cacheURL). Error: \(error)")
+            }
+            Log.verbose("Cahce removed, creting new one.")
+            self.session.session.configuration.urlCache = GenericNetwork.newCache(cacheURL: cacheURL)
+        }
+    }
+    
     // MARK: - Private functions
     
     internal func generateURLFrom(path: String, parameters: [String: Any]?) -> URL {
+        
         guard var endPoint = URL(string: self.endPoint) else {
             fatalError("Failed to create reqeust url for endpoint: '\(self.endPoint)'.")
         }
-        
-        endPoint.appendPathComponent(path)
-        
-        guard var components = URLComponents(url: endPoint, resolvingAgainstBaseURL: false) else {
+        guard var components = URLComponents(url: endPoint, resolvingAgainstBaseURL: true) else {
             fatalError("Failed to create URL compoenents from url: '\(endPoint)'.")
+        }
+        
+        components.path = path
+        if components.scheme == nil {
+            components.scheme = "https"
         }
         
         var requersParameters = parameters ?? [:]
@@ -279,6 +365,7 @@ public class GenericNetwork {
     
     private func validateOptionalResult<T: Decodable>(_ result: AFDataResponse<T>) throws -> T? {
         self.logResponse(result, file: #file, line: #line, column: #column, funcName: #function)
+        self.logMetricEnd(response: result)
         
         if let error = result.error {
             switch (error, result.data) {
@@ -319,7 +406,11 @@ public class GenericNetwork {
                 let bcf = ByteCountFormatter()
                 bcf.countStyle = .binary
                 size = bcf.string(fromByteCount: Int64(data.count))
-                body = String(data: data, encoding: .utf8)
+                if data.count > 1024*100 {
+                    body = "Reponse is too big to print."
+                } else {
+                    body = String(data: data, encoding: .utf8)
+                }
             } else {
                 size = "???"
                 body = "(empty)"
@@ -346,6 +437,23 @@ public class GenericNetwork {
         var headers = self.headerFields
         headers.merge(Settings.globalHeaderFields) { current, _ in return current }
         return HTTPHeaders(headers)
+    }
+    
+    internal func logMetricStart(_ requestURL: String, method: HTTPMethod, parameters: Parameters?) {
+        self.metricsCollector?.requestDidStart(requestURL, method: method, parameters: parameters)
+    }
+    
+    internal func logMetricEnd<T: Decodable>(response: AFDataResponse<T>) {
+        let url = response.request?.url?.absoluteString ?? "???"
+        let method = HTTPMethod(rawValue: response.request?.httpMethod ?? "???") ?? .connect
+        let parameters = response.request?.allHTTPHeaderFields ?? [:]
+        let statusCode = response.response?.statusCode ?? 0
+        let error = response.error
+        self.metricsCollector?.requestDidFinish(url,
+                                                method: method,
+                                                parameters: parameters,
+                                                statusCode: statusCode,
+                                                error: error)
     }
 }
 

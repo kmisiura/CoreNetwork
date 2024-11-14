@@ -9,7 +9,7 @@
 import Foundation
 
 @available(iOS 10.0, macOS 10.12, tvOS 10.0, *)
-public protocol Measurable {
+protocol Measurable {
     var request: URLRequest { get }
     var response: URLResponse? { get }
     
@@ -60,11 +60,11 @@ private extension Array where Element == Metric.Duration {
 }
 
 @available(iOS 10.0, macOS 10.12, tvOS 10.0, *)
-public struct Metric {
-    public let transactionMetrics: Measurable
-    public let durations: [Duration]
+struct Metric {
+    let transactionMetrics: Measurable
+    let durations: [Duration]
     
-    public init(transactionMetrics metrics: Measurable) {
+    init(transactionMetrics metrics: Measurable) {
         self.transactionMetrics = metrics
         
         func check(type: DurationType, _ start: Date?, _ end: Date?) -> Duration? {
@@ -118,7 +118,7 @@ public struct Metric {
         self.durations = durations
     }
     
-    public enum DurationType {
+    enum DurationType {
         case domainLookup
         case connect
         case secureConnection
@@ -127,7 +127,7 @@ public struct Metric {
         case response
         case total
         
-        public var name: String {
+        var name: String {
             switch self {
                 case .domainLookup:
                     return "domain lookup"
@@ -147,15 +147,15 @@ public struct Metric {
         }
     }
     
-    public struct Duration {
-        public let type: DurationType
-        public let interval: DateInterval
+    struct Duration {
+        let type: DurationType
+        let interval: DateInterval
     }
 }
 
 @available(iOS 10.0, macOS 10.12, tvOS 10.0, *)
 extension Metric.Duration: Equatable {
-    public static func ==(lhs: Metric.Duration, rhs: Metric.Duration) -> Bool {
+    static func ==(lhs: Metric.Duration, rhs: Metric.Duration) -> Bool {
         return rhs.type == lhs.type && rhs.interval == rhs.interval
     }
 }
