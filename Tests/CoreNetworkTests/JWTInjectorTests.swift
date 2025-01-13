@@ -1,5 +1,6 @@
 import Alamofire
 @testable import CoreNetwork
+import Foundation
 import Mocker
 import XCTest
 
@@ -18,7 +19,6 @@ final class JWTInjectorTests: XCTestCase {
         let jwInjector = JWTInjector(headerFieldKey: "FIREBASE_JWT")
         let network = Network<CoreNetworkTests.MockResposeModel>.init(endPoint: "https://test.efukt.lt",
                                                                       session: sessions,
-                                                                      requestModifier: nil,
                                                                       requestInterceptor: jwInjector,
                                                                       headers: nil)
         
@@ -52,7 +52,7 @@ final class JWTInjectorTests: XCTestCase {
         
         jwInjector.authorizationToken = "TEST_JWT_TOKEN"
         
-        let cancelable = network.getItem("testInject", parameters: nil)
+        let cancelable = network.getItem("/testInject", parameters: nil)
             .sink(receiveCompletion: { error in
                 switch error {
                     case .failure(let error):
@@ -76,7 +76,6 @@ final class JWTInjectorTests: XCTestCase {
         let jwInjector = JWTInjector(headerFieldKey: "FIREBASE_JWT")
         let network = Network<CoreNetworkTests.MockResposeModel>.init(endPoint: "https://test.efukt.lt",
                                                                       session: sessions,
-                                                                      requestModifier: nil,
                                                                       requestInterceptor: jwInjector,
                                                                       headers: nil)
         
@@ -120,7 +119,7 @@ final class JWTInjectorTests: XCTestCase {
             return nil
         }
         
-        let cancelable = network.getItem("testRetry", parameters: nil)
+        let cancelable = network.getItem("/testRetry", parameters: nil)
             .sink(receiveCompletion: { completion in
                 switch completion {
                     case .failure(let error):
@@ -144,7 +143,6 @@ final class JWTInjectorTests: XCTestCase {
         let jwInjector = JWTInjector(headerFieldKey: "FIREBASE_JWT")
         let network = Network<CoreNetworkTests.MockResposeModel>.init(endPoint: "https://test.efukt.lt",
                                                                       session: sessions,
-                                                                      requestModifier: nil,
                                                                       requestInterceptor: jwInjector,
                                                                       headers: nil)
         
@@ -193,7 +191,7 @@ final class JWTInjectorTests: XCTestCase {
             return "NEW_JWT_TOKEN"
         }
         
-        let cancelable = network.getItem("testRecover", parameters: nil)
+        let cancelable = network.getItem("/testRecover", parameters: nil)
             .sink(receiveCompletion: { completion in
                 switch completion {
                     case .failure(let error):
@@ -217,7 +215,6 @@ final class JWTInjectorTests: XCTestCase {
         let jwInjector = JWTInjector(headerFieldKey: "FIREBASE_JWT")
         let network = Network<CoreNetworkTests.MockResposeModel>.init(endPoint: "https://test.efukt.lt",
                                                                       session: sessions,
-                                                                      requestModifier: nil,
                                                                       requestInterceptor: jwInjector,
                                                                       headers: nil)
         
@@ -261,7 +258,7 @@ final class JWTInjectorTests: XCTestCase {
             return nil
         }
         
-        let cancelable = network.getItem("testRetry", parameters: nil)
+        let cancelable = network.getItem("/testRetry", parameters: nil)
             .sink(receiveCompletion: { completion in
                 switch completion {
                     case .failure(let error):
@@ -285,7 +282,6 @@ final class JWTInjectorTests: XCTestCase {
         let jwInjector = JWTInjector(headerFieldKey: "FIREBASE_JWT")
         let network = Network<CoreNetworkTests.MockResposeModel>.init(endPoint: "https://test.efukt.lt",
                                                                       session: sessions,
-                                                                      requestModifier: nil,
                                                                       requestInterceptor: jwInjector,
                                                                       headers: nil)
         
@@ -327,7 +323,7 @@ final class JWTInjectorTests: XCTestCase {
             return "NEW_JWT_TOKEN"
         }
         
-        let cancelable = network.getItem("testNoTokenRecover", parameters: nil)
+        let cancelable = network.getItem("/testNoTokenRecover", parameters: nil)
             .sink(receiveCompletion: { completion in
                 switch completion {
                     case .failure(let error):

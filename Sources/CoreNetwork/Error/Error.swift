@@ -10,7 +10,7 @@ public enum CoreNetworkError: Error {
 
 @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
 extension Publisher {
-    public func mapErrorToCoreNetworkError(_ transform: @escaping (Self.Failure) -> CoreNetworkError) -> Publishers.MapError<Self, CoreNetworkError> {
+    public func mapErrorToCoreNetworkError() -> Publishers.MapError<Self, CoreNetworkError> {
         return self.mapError { error in
             if let CNError = error as? CoreNetworkError {
                 return CNError

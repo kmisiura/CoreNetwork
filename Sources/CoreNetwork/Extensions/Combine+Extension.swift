@@ -12,7 +12,7 @@ public enum AsyncError: Error {
 }
 
 public extension AnyPublisher {
-    public func async() async throws -> Output {
+    func async() async throws -> Output {
         try await withCheckedThrowingContinuation { continuation in
             var cancellable: AnyCancellable?
             var finishedWithoutValue = true
@@ -36,7 +36,7 @@ public extension AnyPublisher {
 }
 
 public extension Publisher {
-    public func async() async throws -> Output {
+    func async() async throws -> Output {
         try await withCheckedThrowingContinuation { continuation in
             var cancellable: AnyCancellable?
             var finishedWithoutValue = true

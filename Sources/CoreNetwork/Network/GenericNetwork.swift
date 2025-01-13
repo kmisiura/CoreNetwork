@@ -172,8 +172,9 @@ public class GenericNetwork {
                 .validate(statusCode: validStatusCodes)
                 .publishDecodable(type: R.self, decoder: self.decoder)
                 .tryMap { result -> R in try self.validateResult(result) }
-                .mapError { $0 as? CoreNetworkError ?? CoreNetworkError.network(error: $0) }
-                .eraseToAnyPublisher() }
+                .mapErrorToCoreNetworkError()
+                .eraseToAnyPublisher()
+            }
             .eraseToAnyPublisher()
     }
     
@@ -210,8 +211,9 @@ public class GenericNetwork {
                 .tryMap { result -> R in
                     try self.validateResult(result)
                 }
-                .mapError { $0 as? CoreNetworkError ?? CoreNetworkError.network(error: $0) }
-                .eraseToAnyPublisher() }
+                .mapErrorToCoreNetworkError()
+                .eraseToAnyPublisher()
+            }
             .eraseToAnyPublisher()
     }
     
@@ -238,19 +240,20 @@ public class GenericNetwork {
             .flatMap {
                 self.logMetricStart(url.absoluteString, method: method, parameters: parameters)
                 return self.session.request(url,
-                                     method: method,
-                                     parameters: item,
-                                     encoding: self.encoding,
-                                     headers: self.makeHeaderFields(),
-                                     interceptor: requestInterceptor ?? self.requestInterceptor)
+                                            method: method,
+                                            parameters: item,
+                                            encoding: self.encoding,
+                                            headers: self.makeHeaderFields(),
+                                            interceptor: requestInterceptor ?? self.requestInterceptor)
                 .logRequest()
                 .validate(statusCode: validStatusCodes)
                 .publishDecodable(type: R.self, decoder: self.decoder)
                 .tryMap { result -> R? in
                     try self.validateOptionalResult(result)
                 }
-                .mapError { $0 as? CoreNetworkError ?? CoreNetworkError.network(error: $0) }
-                .eraseToAnyPublisher() }
+                .mapErrorToCoreNetworkError()
+                .eraseToAnyPublisher()
+            }
             .eraseToAnyPublisher()
     }
     
@@ -277,18 +280,19 @@ public class GenericNetwork {
             .flatMap {
                 self.logMetricStart(url.absoluteString, method: method, parameters: parameters)
                 return self.session.upload(multipartFormData: multipartFormData,
-                                    to: url,
-                                    method: method,
-                                    headers: self.makeHeaderFields(),
-                                    interceptor: requestInterceptor ?? self.requestInterceptor)
+                                           to: url,
+                                           method: method,
+                                           headers: self.makeHeaderFields(),
+                                           interceptor: requestInterceptor ?? self.requestInterceptor)
                 .logRequest()
                 .validate(statusCode: validStatusCodes)
                 .publishDecodable(type: R.self, decoder: self.decoder)
                 .tryMap { result -> R in
                     try self.validateResult(result)
                 }
-                .mapError { $0 as? CoreNetworkError ?? CoreNetworkError.network(error: $0) }
-                .eraseToAnyPublisher() }
+                .mapErrorToCoreNetworkError()
+                .eraseToAnyPublisher()
+            }
             .eraseToAnyPublisher()
     }
     
@@ -311,7 +315,7 @@ public class GenericNetwork {
     
     internal func generateURLFrom(path: String, parameters: [String: Any]?) -> URL {
         
-        guard var endPoint = URL(string: self.endPoint) else {
+        guard let endPoint = URL(string: self.endPoint) else {
             fatalError("Failed to create reqeust url for endpoint: '\(self.endPoint)'.")
         }
         guard var components = URLComponents(url: endPoint, resolvingAgainstBaseURL: true) else {
@@ -445,7 +449,7 @@ public class GenericNetwork {
     
     internal func logMetricEnd<T: Decodable>(response: AFDataResponse<T>) {
         let url = response.request?.url?.absoluteString ?? "???"
-        let method = HTTPMethod(rawValue: response.request?.httpMethod ?? "???") ?? .connect
+        let method = HTTPMethod(rawValue: response.request?.httpMethod ?? "???")
         let parameters = response.request?.allHTTPHeaderFields ?? [:]
         let statusCode = response.response?.statusCode ?? 0
         let error = response.error

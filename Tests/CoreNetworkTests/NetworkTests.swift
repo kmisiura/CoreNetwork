@@ -20,7 +20,6 @@ final class NetworkTests: XCTestCase {
         
         let network = Network<CoreNetworkTests.MockResposeModel>.init(endPoint: "https://testGetItemRequest.efukt.lt",
                                            session: sessions,
-                                           requestModifier: nil,
                                            requestInterceptor: nil,
                                            headers: ["TestHeader": "1"])
         
@@ -51,7 +50,7 @@ final class NetworkTests: XCTestCase {
         }
         mock.register()
         
-        let cancelable = network.getItem("unitTest", parameters: ["paramOne": ["one", "two"]])
+        let cancelable = network.getItem("/unitTest", parameters: ["paramOne": ["one", "two"]])
             .sink(receiveCompletion: { error in
                 switch error {
                     case .failure(let error):
@@ -75,7 +74,6 @@ final class NetworkTests: XCTestCase {
         
         let network = Network<CoreNetworkTests.MockResposeModel>.init(endPoint: "https://testGetItemsRequest.efukt.lt",
                                                       session: sessions,
-                                                      requestModifier: nil,
                                                       requestInterceptor: nil,
                                                       headers: ["TestHeader": "2"])
         
@@ -107,7 +105,7 @@ final class NetworkTests: XCTestCase {
         }
         mock.register()
         
-        let cancelable = network.getItems("unitTest", parameters: ["paramOne": "one"])
+        let cancelable = network.getItems("/unitTest", parameters: ["paramOne": "one"])
             .sink(receiveCompletion: { error in
                 switch error {
                     case .failure(let error):
@@ -131,7 +129,6 @@ final class NetworkTests: XCTestCase {
         
         let network = Network<CoreNetworkTests.MockResposeModel>.init(endPoint: "https://testPostItemRequest.efukt.lt",
                                                       session: sessions,
-                                                      requestModifier: nil,
                                                       requestInterceptor: nil,
                                                       headers: ["TestHeader": "2"])
         
@@ -163,7 +160,7 @@ final class NetworkTests: XCTestCase {
         }
         mock.register()
         
-        let cancelable = network.postItem("unitTest", parameters: ["paramOne": "one"], item: ["requestParam1": "value1"])
+        let cancelable = network.postItem("/unitTest", parameters: ["paramOne": "one"], item: ["requestParam1": "value1"])
             .sink(receiveCompletion: { error in
                 switch error {
                     case .failure(let error):
@@ -187,7 +184,6 @@ final class NetworkTests: XCTestCase {
         
         let network = Network<CoreNetworkTests.MockResposeModel>.init(endPoint: "https://testPutItemRequest.efukt.lt",
                                                       session: sessions,
-                                                      requestModifier: nil,
                                                       requestInterceptor: nil,
                                                       headers: ["TestHeader": "2"])
         
@@ -219,7 +215,7 @@ final class NetworkTests: XCTestCase {
         }
         mock.register()
         
-        let cancelable = network.putItem("unitTest", parameters: ["paramOne": "one"], item: ["requestParam1": "value1"])
+        let cancelable = network.putItem("/unitTest", parameters: ["paramOne": "one"], item: ["requestParam1": "value1"])
             .sink(receiveCompletion: { error in
                 switch error {
                     case .failure(let error):
@@ -243,7 +239,6 @@ final class NetworkTests: XCTestCase {
         
         let network = Network<CoreNetworkTests.MockResposeModel>.init(endPoint: "https://testDeleteItemRequest.efukt.lt",
                                                       session: sessions,
-                                                      requestModifier: nil,
                                                       requestInterceptor: nil,
                                                       headers: ["TestHeader": "2"])
         
@@ -275,7 +270,7 @@ final class NetworkTests: XCTestCase {
         }
         mock.register()
         
-        let cancelable = network.deleteItem("unitTest", parameters: ["paramOne": "one"], item: ["requestParam1": "value1"])
+        let cancelable = network.deleteItem("/unitTest", parameters: ["paramOne": "one"], item: ["requestParam1": "value1"])
             .sink(receiveCompletion: { error in
                 switch error {
                     case .failure(let error):
@@ -299,7 +294,6 @@ final class NetworkTests: XCTestCase {
         
         let network = Network<CoreNetworkTests.MockResposeModel>.init(endPoint: "https://testStatusCode.efukt.lt",
                                                       session: sessions,
-                                                      requestModifier: nil,
                                                       requestInterceptor: nil,
                                                       headers: ["TestHeader": "1"])
         
@@ -331,7 +325,7 @@ final class NetworkTests: XCTestCase {
         }
         mock.register()
         
-        let cancelable = network.getItem("unitTest", parameters: ["paramOne": "one"])
+        let cancelable = network.getItem("/unitTest", parameters: ["paramOne": "one"])
             .sink(receiveCompletion: { completion in
                 switch completion {
                     case .failure(let error):
@@ -359,7 +353,6 @@ final class NetworkTests: XCTestCase {
         
         let network = Network<CoreNetworkTests.MockResposeModel>.init(endPoint: "https://testFailedRequest.efukt.lt",
                                                       session: sessions,
-                                                      requestModifier: nil,
                                                       requestInterceptor: nil,
                                                       headers: ["TestHeader": "1"])
         
@@ -392,7 +385,7 @@ final class NetworkTests: XCTestCase {
         }
         mock.register()
         
-        let cancelable = network.getItem("unitTest", parameters: ["paramOne": "one"])
+        let cancelable = network.getItem("/unitTest", parameters: ["paramOne": "one"])
             .sink(receiveCompletion: { error in
                 switch error {
                     case .failure(let error):
@@ -429,7 +422,6 @@ final class NetworkTests: XCTestCase {
         
         let network = Network<CoreNetworkTests.MockResposeModel>.init(endPoint: "https://testGlobalParameters.efukt.lt",
                                                                       session: sessions,
-                                                                      requestModifier: nil,
                                                                       requestInterceptor: nil,
                                                                       headers: ["TestHeader": "2"])
         
@@ -475,7 +467,7 @@ final class NetworkTests: XCTestCase {
         }
         mock.register()
         
-        let cancelable = network.postItem("unitTest", parameters: [:], item: ["requestParam1": "value1"])
+        let cancelable = network.postItem("/unitTest", parameters: [:], item: ["requestParam1": "value1"])
             .sink(receiveCompletion: { error in
                 switch error {
                     case .failure(let error):
@@ -499,7 +491,6 @@ final class NetworkTests: XCTestCase {
         
         let network = Network<CoreNetworkTests.MockResposeModel>.init(endPoint: "https://testGlobalParametersOverriding.efukt.lt",
                                                                       session: sessions,
-                                                                      requestModifier: nil,
                                                                       requestInterceptor: nil,
                                                                       headers: ["TestHeader": "2"])
         
@@ -545,7 +536,7 @@ final class NetworkTests: XCTestCase {
         }
         mock.register()
         
-        let cancelable = network.postItem("unitTest", parameters: ["paramOne": "one", "GLOBAL_TEST_PARAM": 2], item: ["requestParam1": "value1"])
+        let cancelable = network.postItem("/unitTest", parameters: ["paramOne": "one", "GLOBAL_TEST_PARAM": 2], item: ["requestParam1": "value1"])
             .sink(receiveCompletion: { error in
                 switch error {
                     case .failure(let error):
@@ -570,7 +561,6 @@ final class NetworkTests: XCTestCase {
         
         let network = Network<CoreNetworkTests.MockResposeModel>.init(endPoint: "https://testParametersOverriding.efukt.lt",
                                                                       session: sessions,
-                                                                      requestModifier: nil,
                                                                       requestInterceptor: nil)
         
         network.queryItems["REQUEST"] = 2
@@ -620,7 +610,7 @@ final class NetworkTests: XCTestCase {
                           "LOCAL_OVERRIDE": 1,
                           "GLOBAL_OVERRIDE": 1]
         
-        let cancelable = network.postItem("unitTest", parameters: parameters, item: ["requestParam1": "value1"])
+        let cancelable = network.postItem("/unitTest", parameters: parameters, item: ["requestParam1": "value1"])
             .sink(receiveCompletion: { error in
                 switch error {
                     case .failure(let error):
@@ -645,7 +635,6 @@ final class NetworkTests: XCTestCase {
         
         let network = Network<CoreNetworkTests.MockResposeModel>.init(endPoint: "https://testHeadersOverriding.efukt.lt",
                                                                       session: sessions,
-                                                                      requestModifier: nil,
                                                                       requestInterceptor: nil)
         
         network.headerFields["LOCAL_OVERRIDE"] = "2"
@@ -688,7 +677,7 @@ final class NetworkTests: XCTestCase {
         }
         mock.register()
         
-        let cancelable = network.postItem("unitTest", parameters: [:], item: ["requestParam1": "value1"])
+        let cancelable = network.postItem("/unitTest", parameters: [:], item: ["requestParam1": "value1"])
             .sink(receiveCompletion: { error in
                 switch error {
                     case .failure(let error):
@@ -712,7 +701,6 @@ final class NetworkTests: XCTestCase {
         
         let network = Network<NoReply>.init(endPoint: "https://testEmptyResponse.efukt.lt",
                                             session: sessions,
-                                            requestModifier: nil,
                                             requestInterceptor: nil)
         
         let finishExpectation = expectation(description: "Waiting for finish")
@@ -742,7 +730,7 @@ final class NetworkTests: XCTestCase {
         }
         mock.register()
         
-        let cancelable = network.postItem("unitTest", parameters: ["paramOne": "one"], item: ["requestParam1": "value1"])
+        let cancelable = network.postItem("/unitTest", parameters: ["paramOne": "one"], item: ["requestParam1": "value1"])
             .sink(receiveCompletion: { error in
                 switch error {
                     case .failure(let error):
