@@ -329,7 +329,7 @@ final class NetworkTests: XCTestCase {
             .sink(receiveCompletion: { completion in
                 switch completion {
                     case .failure(let error):
-                        if case let CoreNetworkError.backend(code, _) = error {
+                        if case let CoreNetworkError.backend(code, _, _) = error {
                             XCTAssertEqual(code, 501)
                         } else {
                             XCTAssert(false)
@@ -390,7 +390,7 @@ final class NetworkTests: XCTestCase {
                 switch error {
                     case .failure(let error):
                         switch error {
-                            case let CoreNetworkError.network(underlyingError):
+                            case let CoreNetworkError.network(error: underlyingError, request: _):
                                 if case AFError.sessionTaskFailed(error: let underlyingError) = underlyingError {
                                     XCTAssertNotNil(underlyingError)
                                     let nsError = underlyingError as NSError

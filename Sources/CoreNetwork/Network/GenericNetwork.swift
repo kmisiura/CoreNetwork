@@ -361,7 +361,8 @@ public class GenericNetwork {
         let value = try validateOptionalResult(result)
         
         guard let value = value else {
-            throw CoreNetworkError.noResponse
+            let url = result.request?.url?.absoluteString ?? "UNKNOWN"
+            throw CoreNetworkError.noResponse(request: url)
         }
         
         return value
@@ -374,24 +375,26 @@ public class GenericNetwork {
         if let error = result.error {
             switch (error, result.data) {
                 case (.responseValidationFailed(reason: .unacceptableStatusCode(let code)), let data?):
-                    throw mapError(statusCode: code, errorData: data)
+                    let url = result.request?.url?.absoluteString ?? "UNKNOWN"
+                    throw mapError(statusCode: code, errorData: data, request: url)
                 case (.responseSerializationFailed(reason: .invalidEmptyResponse), _):
                     ()
                 default:
-                    throw CoreNetworkError.network(error: error)
+                    let url = result.request?.url?.absoluteString ?? "UNKNOWN"
+                    throw CoreNetworkError.network(error: error, request: url)
             }
         }
         
         return result.value
     }
     
-    private func mapError(statusCode code: Int, errorData data: Data) -> CoreNetworkError {
+    private func mapError(statusCode code: Int, errorData data: Data, request url: String) -> CoreNetworkError {
         var error: Error? = nil
         if let errorMapper = errorMapper {
             error = errorMapper.map(decoder: self.decoder, statusCode: code, data: data)
         }
         
-        return CoreNetworkError.backend(code: code, error: error)
+        return CoreNetworkError.backend(code: code, error: error, request: url)
     }
     
     private func logResponse<T: Decodable>(_ response: AFDataResponse<T>,
