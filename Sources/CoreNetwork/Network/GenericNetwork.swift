@@ -4,8 +4,8 @@ import Foundation
 import OSLogger
 
 public protocol MetricsCollector {
-    func requestDidStart(_ requestURL: String, method: HTTPMethod, parameters: Parameters?)
-    func requestDidFinish(_ requestURL: String, method: HTTPMethod, parameters: Parameters?, statusCode: Int?, error: Error?)
+    func requestDidStart(id: UUID, requestURL: String, method: HTTPMethod, parameters: Parameters?)
+    func requestDidFinish(id: UUID, requestURL: String, method: HTTPMethod, parameters: Parameters?, statusCode: Int?, error: Error?)
 }
 
 public protocol NetworkErrorMapper {
@@ -159,19 +159,20 @@ public class GenericNetwork {
                                                requestInterceptor: RequestInterceptor? = nil,
                                                validStatusCodes: Range<Int> = 200..<300) -> AnyPublisher<R, CoreNetworkError> {
         let url = generateURLFrom(path: path, parameters: parameters)
+        let requestId = UUID()
         return Just(())
             .setFailureType(to: CoreNetworkError.self)
             .flatMap {
-                self.logMetricStart(url.absoluteString, method: method, parameters: parameters)
+                self.logMetricStart(url.absoluteString, method: method, parameters: parameters, requestId: requestId)
                 return self.session.request(url,
                                             method: method,
                                             encoding: self.encoding,
                                             headers: self.makeHeaderFields(),
                                             interceptor: requestInterceptor ?? self.requestInterceptor)
-                .logRequest()
+                .logRequest(requestId: requestId)
                 .validate(statusCode: validStatusCodes)
                 .publishDecodable(type: R.self, decoder: self.decoder)
-                .tryMap { result -> R in try self.validateResult(result) }
+                .tryMap { result -> R in try self.validateResult(result, requestId: requestId) }
                 .mapErrorToCoreNetworkError()
                 .eraseToAnyPublisher()
             }
@@ -196,20 +197,22 @@ public class GenericNetwork {
                                                requestInterceptor: RequestInterceptor? = nil,
                                                validStatusCodes: Range<Int> = 200..<300) -> AnyPublisher<R, CoreNetworkError> {
         let url = generateURLFrom(path: path, parameters: parameters)
+        let requestId = UUID()
         return Just(())
             .setFailureType(to: CoreNetworkError.self)
             .flatMap {
-                self.session.request(url,
+                self.logMetricStart(url.absoluteString, method: method, parameters: parameters, requestId: requestId)
+                return self.session.request(url,
                                      method: method,
                                      parameters: item,
                                      encoding: self.encoding,
                                      headers: self.makeHeaderFields(),
                                      interceptor: requestInterceptor ?? self.requestInterceptor)
-                .logRequest()
+                .logRequest(requestId: requestId)
                 .validate(statusCode: validStatusCodes)
                 .publishDecodable(type: R.self, decoder: self.decoder)
                 .tryMap { result -> R in
-                    try self.validateResult(result)
+                    try self.validateResult(result, requestId: requestId)
                 }
                 .mapErrorToCoreNetworkError()
                 .eraseToAnyPublisher()
@@ -235,21 +238,22 @@ public class GenericNetwork {
                                                        requestInterceptor: RequestInterceptor? = nil,
                                                        validStatusCodes: Range<Int> = 200..<300) -> AnyPublisher<R?, CoreNetworkError> {
         let url = generateURLFrom(path: path, parameters: parameters)
+        let requestId = UUID()
         return Just(())
             .setFailureType(to: CoreNetworkError.self)
             .flatMap {
-                self.logMetricStart(url.absoluteString, method: method, parameters: parameters)
+                self.logMetricStart(url.absoluteString, method: method, parameters: parameters, requestId: requestId)
                 return self.session.request(url,
                                             method: method,
                                             parameters: item,
                                             encoding: self.encoding,
                                             headers: self.makeHeaderFields(),
                                             interceptor: requestInterceptor ?? self.requestInterceptor)
-                .logRequest()
+                .logRequest(requestId: requestId)
                 .validate(statusCode: validStatusCodes)
                 .publishDecodable(type: R.self, decoder: self.decoder)
                 .tryMap { result -> R? in
-                    try self.validateOptionalResult(result)
+                    try self.validateOptionalResult(result, requestId: requestId)
                 }
                 .mapErrorToCoreNetworkError()
                 .eraseToAnyPublisher()
@@ -275,20 +279,21 @@ public class GenericNetwork {
                                                requestInterceptor: RequestInterceptor? = nil,
                                                validStatusCodes: Range<Int> = 200..<300) -> AnyPublisher<R, CoreNetworkError> {
         let url = generateURLFrom(path: path, parameters: parameters)
+        let requestId = UUID()
         return Just(())
             .setFailureType(to: CoreNetworkError.self)
             .flatMap {
-                self.logMetricStart(url.absoluteString, method: method, parameters: parameters)
+                self.logMetricStart(url.absoluteString, method: method, parameters: parameters, requestId: requestId)
                 return self.session.upload(multipartFormData: multipartFormData,
                                            to: url,
                                            method: method,
                                            headers: self.makeHeaderFields(),
                                            interceptor: requestInterceptor ?? self.requestInterceptor)
-                .logRequest()
+                .logRequest(requestId: requestId)
                 .validate(statusCode: validStatusCodes)
                 .publishDecodable(type: R.self, decoder: self.decoder)
                 .tryMap { result -> R in
-                    try self.validateResult(result)
+                    try self.validateResult(result, requestId: requestId)
                 }
                 .mapErrorToCoreNetworkError()
                 .eraseToAnyPublisher()
@@ -357,8 +362,8 @@ public class GenericNetwork {
         return queryItems
     }
     
-    private func validateResult<T: Decodable>(_ result: AFDataResponse<T>) throws -> T {
-        let value = try validateOptionalResult(result)
+    private func validateResult<T: Decodable>(_ result: AFDataResponse<T>, requestId: UUID) throws -> T {
+        let value = try validateOptionalResult(result, requestId: requestId)
         
         guard let value = value else {
             let url = result.request?.url?.absoluteString ?? "UNKNOWN"
@@ -368,9 +373,9 @@ public class GenericNetwork {
         return value
     }
     
-    private func validateOptionalResult<T: Decodable>(_ result: AFDataResponse<T>) throws -> T? {
-        self.logResponse(result, file: #file, line: #line, column: #column, funcName: #function)
-        self.logMetricEnd(response: result)
+    private func validateOptionalResult<T: Decodable>(_ result: AFDataResponse<T>, requestId: UUID) throws -> T? {
+        self.logResponse(result, requestId: requestId, file: #file, line: #line, column: #column, funcName: #function)
+        self.logMetricEnd(response: result, requestId: requestId)
         
         if let error = result.error {
             switch (error, result.data) {
@@ -398,6 +403,7 @@ public class GenericNetwork {
     }
     
     private func logResponse<T: Decodable>(_ response: AFDataResponse<T>,
+                                           requestId: UUID,
                                            file: String,
                                            line: Int,
                                            column: Int,
@@ -423,7 +429,7 @@ public class GenericNetwork {
                 body = "(empty)"
             }
             
-            Log.verbose("Response \(method) \(url) (\(status)) \(size)\n \(body ?? "(invalid encoding)")",
+            Log.verbose("Response \(requestId) -> \(method) \(url) (\(status)) \(size)\n \(body ?? "(invalid encoding)")",
                         file: file,
                         line: line,
                         column: column,
@@ -435,7 +441,7 @@ public class GenericNetwork {
                 let stats = SessionMetrics(source: metrics)
                 let renderer = ConsoleRenderer()
                 let renderedMetrics = renderer.render(with: stats, taskID: String(response.request.hashValue))
-                Log.debug("Response metrics:\n\(renderedMetrics)", file: file, line: line, column: column, funcName: funcName)
+                Log.debug("Response \(requestId) metrics:\n\(renderedMetrics)", file: file, line: line, column: column, funcName: funcName)
             }
         }
     }
@@ -446,17 +452,18 @@ public class GenericNetwork {
         return HTTPHeaders(headers)
     }
     
-    internal func logMetricStart(_ requestURL: String, method: HTTPMethod, parameters: Parameters?) {
-        self.metricsCollector?.requestDidStart(requestURL, method: method, parameters: parameters)
+    internal func logMetricStart(_ requestURL: String, method: HTTPMethod, parameters: Parameters?, requestId: UUID) {
+        self.metricsCollector?.requestDidStart(id: requestId, requestURL: requestURL, method: method, parameters: parameters)
     }
     
-    internal func logMetricEnd<T: Decodable>(response: AFDataResponse<T>) {
+    internal func logMetricEnd<T: Decodable>(response: AFDataResponse<T>, requestId: UUID) {
         let url = response.request?.url?.absoluteString ?? "???"
         let method = HTTPMethod(rawValue: response.request?.httpMethod ?? "???")
         let parameters = response.request?.allHTTPHeaderFields ?? [:]
         let statusCode = response.response?.statusCode ?? 0
         let error = response.error
-        self.metricsCollector?.requestDidFinish(url,
+        self.metricsCollector?.requestDidFinish(id: requestId,
+                                                requestURL: url,
                                                 method: method,
                                                 parameters: parameters,
                                                 statusCode: statusCode,
@@ -466,13 +473,13 @@ public class GenericNetwork {
 
 extension DataRequest {
     
-    func logRequest() -> DataRequest {
+    func logRequest(requestId: UUID) -> DataRequest {
         guard Log.Level.verbose.isEnabled() else { return self }
         self.cURLDescription { curl in
             let method = self.request?.httpMethod ?? "???"
             let url = self.request?.url?.absoluteString ?? "???"
             let curl = self.cURLDescription()
-            Log.verbose("Request \(method) \(url)\n \(curl)")
+            Log.verbose("Request \(requestId) -> \(method) \(url)\n \(curl)")
         }
         
         return self
