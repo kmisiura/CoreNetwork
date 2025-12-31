@@ -301,6 +301,59 @@ public class GenericNetwork {
             .eraseToAnyPublisher()
     }
     
+    /// Returns publisher for provided API path for file download.
+    ///
+    /// - Parameters:
+    ///   - path:               `String` that specifies API path.
+    ///   - method:             `HTTPMethod` for the request.
+    ///   - parameters:         Url parameters.
+    ///   - downloadTo:         `URL` to save downloaded file to, will create temporarry file if nil.
+    ///   - requestInterceptor: `RequestInterceptor` to use for the request
+    ///   - validStatusCodes:   `Range` of the status codes when response is treated as a success.
+    ///
+    /// - Returns:    The `AnyPublisher<String, CoreNetworkError>` with file save path.
+    public func publisherForPath(_ path: String,
+                                 method: HTTPMethod = .get,
+                                 parameters: [String: Any]? = nil,
+                                 downloadTo destinationURL: URL? = nil,
+                                 requestInterceptor: RequestInterceptor? = nil,
+                                 validStatusCodes: Range<Int> = 200..<300) -> AnyPublisher<String, CoreNetworkError> {
+        let url = generateURLFrom(path: path, parameters: parameters)
+        let requestId = UUID()
+        let requestDestination: DownloadRequest.Destination?
+        if let destinationURL = destinationURL {
+            requestDestination = { _, _ in
+                (destinationURL, [.removePreviousFile])
+            }
+        } else {
+            requestDestination = nil
+        }
+        return Just(())
+            .setFailureType(to: CoreNetworkError.self)
+            .flatMap {
+                self.logMetricStart(url.absoluteString, method: method, parameters: parameters, requestId: requestId)
+                return self.session.download(url,
+                                             method: method,
+                                             parameters: parameters,
+                                             encoding: self.encoding,
+                                             headers: self.makeHeaderFields(),
+                                             interceptor: requestInterceptor ?? self.requestInterceptor,
+                                             to: requestDestination)
+                .logRequest(requestId: requestId)
+                .validate(statusCode: validStatusCodes)
+                .publishURL()
+                .tryMap { (result: DownloadResponse<URL, AFError>) -> String in
+                    guard let url = try self.validateResult(result, requestId: requestId) else {
+                        throw CoreNetworkError.noResponse(request: url.absoluteString)
+                    }
+                    return url.path
+                }
+                .mapErrorToCoreNetworkError()
+                .eraseToAnyPublisher()
+            }
+            .eraseToAnyPublisher()
+    }
+    
     public func removeAllCachedResponses() {
         Log.verbose()
         if let urlCache = self.session.session.configuration.urlCache, let cacheURL = self.cacheURL {
@@ -373,8 +426,24 @@ public class GenericNetwork {
         return value
     }
     
+    private func validateResult(_ result: DownloadResponse<URL, AFError>, requestId: UUID) throws -> URL? {
+        let value = try validateOptionalResult(result, requestId: requestId)
+        
+        guard let value = value else {
+            let url = result.request?.url?.absoluteString ?? "UNKNOWN"
+            throw CoreNetworkError.noResponse(request: url)
+        }
+        
+        return value
+    }
+    
     private func validateOptionalResult<T: Decodable>(_ result: AFDataResponse<T>, requestId: UUID) throws -> T? {
-        self.logResponse(result, requestId: requestId, file: #file, line: #line, column: #column, funcName: #function)
+        self.logResponse(result.response,
+                         request: result.request,
+                         data: nil,
+                         metrics: result.metrics,
+                         requestId: requestId,
+                         file: #file, line: #line, column: #column, funcName: #function)
         self.logMetricEnd(response: result, requestId: requestId)
         
         if let error = result.error {
@@ -383,6 +452,31 @@ public class GenericNetwork {
                     let url = result.request?.url?.absoluteString ?? "UNKNOWN"
                     throw mapError(statusCode: code, errorData: data, request: url)
                 case (.responseSerializationFailed(reason: .invalidEmptyResponse), _):
+                    ()
+                default:
+                    let url = result.request?.url?.absoluteString ?? "UNKNOWN"
+                    throw CoreNetworkError.network(error: error, request: url)
+            }
+        }
+        
+        return result.value
+    }
+    
+    private func validateOptionalResult(_ result: DownloadResponse<URL, AFError>, requestId: UUID) throws -> URL? {
+        self.logResponse(result.response,
+                         request: result.request,
+                         data: nil,
+                         metrics: result.metrics,
+                         requestId: requestId,
+                         file: #file, line: #line, column: #column, funcName: #function)
+        self.logMetricEnd(response: result, requestId: requestId)
+        
+        if let error = result.error {
+            switch error {
+                case .responseValidationFailed(reason: .unacceptableStatusCode(let code)):
+                    let url = result.request?.url?.absoluteString ?? "UNKNOWN"
+                    throw mapError(statusCode: code, errorData: Data(), request: url)
+                case .responseSerializationFailed(reason: .invalidEmptyResponse):
                     ()
                 default:
                     let url = result.request?.url?.absoluteString ?? "UNKNOWN"
@@ -402,20 +496,23 @@ public class GenericNetwork {
         return CoreNetworkError.backend(code: code, error: error, request: url)
     }
     
-    private func logResponse<T: Decodable>(_ response: AFDataResponse<T>,
-                                           requestId: UUID,
-                                           file: String,
-                                           line: Int,
-                                           column: Int,
-                                           funcName: String) {
+    private func logResponse(_ response: HTTPURLResponse?,
+                             request: URLRequest?,
+                             data: Data?,
+                             metrics: URLSessionTaskMetrics?,
+                             requestId: UUID,
+                             file: String,
+                             line: Int,
+                             column: Int,
+                             funcName: String) {
         if Log.Level.verbose.isEnabled() {
-            let status = response.response?.statusCode ?? 0
-            let url = response.request?.url?.absoluteString ?? "???"
-            let method = response.request?.httpMethod ?? "???"
+            let status = response?.statusCode ?? 0
+            let url = request?.url?.absoluteString ?? "???"
+            let method = request?.httpMethod ?? "???"
             
             let size: String
             let body: String?
-            if let data = response.data {
+            if let data = data {
                 let bcf = ByteCountFormatter()
                 bcf.countStyle = .binary
                 size = bcf.string(fromByteCount: Int64(data.count))
@@ -437,10 +534,10 @@ public class GenericNetwork {
         }
         
         if Log.Level.debug.isEnabled() {
-            if let metrics = response.metrics {
+            if let metrics = metrics {
                 let stats = SessionMetrics(source: metrics)
                 let renderer = ConsoleRenderer()
-                let renderedMetrics = renderer.render(with: stats, taskID: String(response.request.hashValue))
+                let renderedMetrics = renderer.render(with: stats, taskID: String(request.hashValue))
                 Log.debug("Response \(requestId) metrics:\n\(renderedMetrics)", file: file, line: line, column: column, funcName: funcName)
             }
         }
@@ -469,11 +566,40 @@ public class GenericNetwork {
                                                 statusCode: statusCode,
                                                 error: error)
     }
+    
+    internal func logMetricEnd(response: DownloadResponse<URL, AFError>, requestId: UUID) {
+        let url = response.request?.url?.absoluteString ?? "???"
+        let method = HTTPMethod(rawValue: response.request?.httpMethod ?? "???")
+        let parameters = response.request?.allHTTPHeaderFields ?? [:]
+        let statusCode = response.response?.statusCode ?? 0
+        let error = response.error
+        self.metricsCollector?.requestDidFinish(id: requestId,
+                                                requestURL: url,
+                                                method: method,
+                                                parameters: parameters,
+                                                statusCode: statusCode,
+                                                error: error)
+    }
 }
 
 extension DataRequest {
     
     func logRequest(requestId: UUID) -> DataRequest {
+        guard Log.Level.verbose.isEnabled() else { return self }
+        self.cURLDescription { curl in
+            let method = self.request?.httpMethod ?? "???"
+            let url = self.request?.url?.absoluteString ?? "???"
+            let curl = self.cURLDescription()
+            Log.verbose("Request \(requestId) -> \(method) \(url)\n \(curl)")
+        }
+        
+        return self
+    }
+}
+
+extension DownloadRequest {
+    
+    func logRequest(requestId: UUID) -> DownloadRequest {
         guard Log.Level.verbose.isEnabled() else { return self }
         self.cURLDescription { curl in
             let method = self.request?.httpMethod ?? "???"
