@@ -440,7 +440,7 @@ public class GenericNetwork {
     private func validateOptionalResult<T: Decodable>(_ result: AFDataResponse<T>, requestId: UUID) throws -> T? {
         self.logResponse(result.response,
                          request: result.request,
-                         data: nil,
+                         data: result.data,
                          metrics: result.metrics,
                          requestId: requestId,
                          file: #file, line: #line, column: #column, funcName: #function)
@@ -516,10 +516,14 @@ public class GenericNetwork {
                 let bcf = ByteCountFormatter()
                 bcf.countStyle = .binary
                 size = bcf.string(fromByteCount: Int64(data.count))
-                if data.count > 1024*100 {
-                    body = "Reponse is too big to print."
+                if Log.Level.debug.isEnabled() {
+                    if data.count > 1024*100 {
+                        body = "Reponse is too big to print."
+                    } else {
+                        body = String(data: data, encoding: .utf8)
+                    }
                 } else {
-                    body = String(data: data, encoding: .utf8)
+                    body = "REDACTED"
                 }
             } else {
                 size = "???"
