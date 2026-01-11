@@ -157,8 +157,9 @@ public class GenericNetwork {
                                                method: HTTPMethod = .get,
                                                parameters: [String: Any]? = nil,
                                                requestInterceptor: RequestInterceptor? = nil,
-                                               validStatusCodes: Range<Int> = 200..<300) -> AnyPublisher<R, CoreNetworkError> {
-        let url = generateURLFrom(path: path, parameters: parameters)
+                                               validStatusCodes: Range<Int> = 200..<300,
+                                               overrideEndpoint: String? = nil) -> AnyPublisher<R, CoreNetworkError> {
+        let url = generateURLFrom(path: path, endpoint: overrideEndpoint, parameters: parameters)
         let requestId = UUID()
         return Just(())
             .setFailureType(to: CoreNetworkError.self)
@@ -195,8 +196,9 @@ public class GenericNetwork {
                                                parameters: [String: Any]? = nil,
                                                item: [String: Any]? = nil,
                                                requestInterceptor: RequestInterceptor? = nil,
-                                               validStatusCodes: Range<Int> = 200..<300) -> AnyPublisher<R, CoreNetworkError> {
-        let url = generateURLFrom(path: path, parameters: parameters)
+                                               validStatusCodes: Range<Int> = 200..<300,
+                                               overrideEndpoint: String? = nil) -> AnyPublisher<R, CoreNetworkError> {
+        let url = generateURLFrom(path: path, endpoint: overrideEndpoint, parameters: parameters)
         let requestId = UUID()
         return Just(())
             .setFailureType(to: CoreNetworkError.self)
@@ -236,8 +238,9 @@ public class GenericNetwork {
                                                        parameters: [String: Any]? = nil,
                                                        item: [String: Any]? = nil,
                                                        requestInterceptor: RequestInterceptor? = nil,
-                                                       validStatusCodes: Range<Int> = 200..<300) -> AnyPublisher<R?, CoreNetworkError> {
-        let url = generateURLFrom(path: path, parameters: parameters)
+                                                       validStatusCodes: Range<Int> = 200..<300,
+                                                       overrideEndpoint: String? = nil) -> AnyPublisher<R?, CoreNetworkError> {
+        let url = generateURLFrom(path: path, endpoint: overrideEndpoint, parameters: parameters)
         let requestId = UUID()
         return Just(())
             .setFailureType(to: CoreNetworkError.self)
@@ -277,8 +280,9 @@ public class GenericNetwork {
                                                parameters: [String: Any]? = nil,
                                                multipartFormData: @escaping (MultipartFormData) -> Void,
                                                requestInterceptor: RequestInterceptor? = nil,
-                                               validStatusCodes: Range<Int> = 200..<300) -> AnyPublisher<R, CoreNetworkError> {
-        let url = generateURLFrom(path: path, parameters: parameters)
+                                               validStatusCodes: Range<Int> = 200..<300,
+                                               overrideEndpoint: String? = nil) -> AnyPublisher<R, CoreNetworkError> {
+        let url = generateURLFrom(path: path, endpoint: overrideEndpoint, parameters: parameters)
         let requestId = UUID()
         return Just(())
             .setFailureType(to: CoreNetworkError.self)
@@ -317,8 +321,9 @@ public class GenericNetwork {
                                  parameters: [String: Any]? = nil,
                                  downloadTo destinationURL: URL? = nil,
                                  requestInterceptor: RequestInterceptor? = nil,
-                                 validStatusCodes: Range<Int> = 200..<300) -> AnyPublisher<String, CoreNetworkError> {
-        let url = generateURLFrom(path: path, parameters: parameters)
+                                 validStatusCodes: Range<Int> = 200..<300,
+                                 overrideEndpoint: String? = nil) -> AnyPublisher<String, CoreNetworkError> {
+        let url = generateURLFrom(path: path, endpoint: overrideEndpoint, parameters: parameters)
         let requestId = UUID()
         let requestDestination: DownloadRequest.Destination?
         if let destinationURL = destinationURL {
@@ -371,9 +376,9 @@ public class GenericNetwork {
     
     // MARK: - Private functions
     
-    internal func generateURLFrom(path: String, parameters: [String: Any]?) -> URL {
+    internal func generateURLFrom(path: String, endpoint: String? = nil, parameters: [String: Any]?) -> URL {
         
-        guard let endPoint = URL(string: self.endPoint) else {
+        guard let endPoint = URL(string: endpoint ?? self.endPoint) else {
             fatalError("Failed to create reqeust url for endpoint: '\(self.endPoint)'.")
         }
         guard var components = URLComponents(url: endPoint, resolvingAgainstBaseURL: true) else {
